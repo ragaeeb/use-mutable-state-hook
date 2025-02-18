@@ -1,10 +1,31 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 type ProxyState<T> = {
     [K in keyof T]: T[K] extends object ? ProxyState<T[K]> | T[K] : T[K];
 } & {
     toObject: () => T;
 };
+
+export function useMutableState<T extends object>(initialState: T): ProxyState<T> {
+    const [state, setState] = useState<T>(() => structuredClone(initialState));
+
+    const triggerUpdate = useCallback(() => {
+        setState((prevState: T) => ({ ...prevState })); // Replace the reference
+    }, []);
+
+    const proxy = useMemo(() => createReactiveProxy(state, triggerUpdate), [state]);
+
+    return proxy;
+}
+
+/**
+ * A React hook that provides a deeply reactive state proxy.
+ * Mutations to any property (including nested) trigger component re-renders.
+ *
+ * @template T - The type of the object used for the state.
+ * @param initialState - The initial state object.
+ * @returns A deeply reactive proxy of the initial state.
+ */
 
 /**
  * Creates a recursive reactive proxy for the given object.
@@ -16,6 +37,14 @@ type ProxyState<T> = {
  */
 function createReactiveProxy<T extends object>(obj: T, triggerUpdate: () => void): ProxyState<T> {
     return new Proxy(obj, {
+        deleteProperty(target, property) {
+            if (property in target) {
+                delete target[property as keyof T];
+                triggerUpdate(); // Notify React to trigger a render
+            }
+            return true;
+        },
+
         get(target, property) {
             if (property === 'toObject') {
                 return () => {
@@ -38,7 +67,7 @@ function createReactiveProxy<T extends object>(obj: T, triggerUpdate: () => void
             }
 
             if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-                return createReactiveProxy(value as Record<string, any>, triggerUpdate);
+                return createReactiveProxy(value as Record<string, T>, triggerUpdate);
             }
 
             return value;
@@ -46,7 +75,7 @@ function createReactiveProxy<T extends object>(obj: T, triggerUpdate: () => void
 
         set(target, property, value) {
             if (value && typeof value === 'object' && !(value instanceof RegExp)) {
-                value = createReactiveProxy(value as Record<string, any>, triggerUpdate);
+                value = createReactiveProxy(value as Record<string, T>, triggerUpdate);
             }
 
             if (target[property as keyof T] !== value) {
@@ -56,34 +85,5 @@ function createReactiveProxy<T extends object>(obj: T, triggerUpdate: () => void
 
             return true;
         },
-
-        deleteProperty(target, property) {
-            if (property in target) {
-                delete target[property as keyof T];
-                triggerUpdate(); // Notify React to trigger a render
-            }
-            return true;
-        },
     }) as ProxyState<T>;
-}
-
-/**
- * A React hook that provides a deeply reactive state proxy.
- * Mutations to any property (including nested) trigger component re-renders.
- *
- * @template T - The type of the object used for the state.
- * @param initialState - The initial state object.
- * @returns A deeply reactive proxy of the initial state.
- */
-
-export function useMutableState<T extends object>(initialState: T): ProxyState<T> {
-    const [state, setState] = useState<T>(() => structuredClone(initialState));
-
-    const triggerUpdate = useCallback(() => {
-        setState((prevState: T) => ({ ...prevState })); // Replace the reference
-    }, []);
-
-    const proxy = useMemo(() => createReactiveProxy(state, triggerUpdate), [state]);
-
-    return proxy;
 }

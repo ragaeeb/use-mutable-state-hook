@@ -28,6 +28,18 @@
 Install the package via npm or yarn:
 
 ```sh
+bun add use-mutable-state-hook
+```
+
+or
+
+```sh
+pnpm add use-mutable-state-hook
+```
+
+or
+
+```sh
 npm install use-mutable-state-hook
 ```
 
@@ -103,7 +115,7 @@ console.log(pojo); // Outputs the plain object version of state
 
 ## 📜 License
 
-This project is licensed under the **ISC License**.
+This project is licensed under the **MIT License**.
 
 ---
 

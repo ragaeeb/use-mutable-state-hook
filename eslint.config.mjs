@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint';
 export default [
     perfectionist.configs['recommended-natural'],
     { files: ['**/*.{js,mjs,cjs,ts}'] },
-    { languageOptions: { ecmaVersion: 'latest', globals: globals.es2025, sourceType: 'module' } },
+    { languageOptions: { ecmaVersion: 'latest', globals: globals.browser, sourceType: 'module' } },
     pluginJs.configs.recommended,
     ...tseslint.configs.recommended,
     eslintPluginPrettierRecommended,
