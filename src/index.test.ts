@@ -114,4 +114,31 @@ describe('useMutableState', () => {
         expect(state1.current.user.profile.name).toBe('Bob');
         expect(state2.current.user.profile.name).toBe('Alice'); // Should remain unchanged
     });
+
+    it('should remain reactive after multiple updates', () => {
+        const { result } = renderHook(() => useMutableState({ count: 0 }));
+
+        act(() => {
+            result.current.count++;
+            result.current.count++;
+        });
+
+        expect(result.current.count).toBe(2);
+
+        act(() => {
+            result.current.count += 5;
+        });
+
+        expect(result.current.count).toBe(7);
+    });
+
+    it('should return a deep clone from toObject()', () => {
+        const { result } = renderHook(() => useMutableState({ user: { name: 'Alice' } }));
+
+        const pojo = result.current.toObject();
+
+        pojo.user.name = 'Bob'; // Mutate the clone
+
+        expect(result.current.user.name).toBe('Alice'); // Original state should be unaffected
+    });
 });

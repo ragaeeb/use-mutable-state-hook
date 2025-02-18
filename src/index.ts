@@ -1,22 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 type ProxyState<T> = {
     [K in keyof T]: T[K] extends object ? ProxyState<T[K]> | T[K] : T[K];
 } & {
     toObject: () => T;
 };
-
-export function useMutableState<T extends object>(initialState: T): ProxyState<T> {
-    const [state, setState] = useState<T>(() => structuredClone(initialState));
-
-    const triggerUpdate = useCallback(() => {
-        setState((prevState: T) => ({ ...prevState })); // Replace the reference
-    }, []);
-
-    const proxy = useMemo(() => createReactiveProxy(state, triggerUpdate), [state]);
-
-    return proxy;
-}
 
 /**
  * A React hook that provides a deeply reactive state proxy.
@@ -26,6 +14,17 @@ export function useMutableState<T extends object>(initialState: T): ProxyState<T
  * @param initialState - The initial state object.
  * @returns A deeply reactive proxy of the initial state.
  */
+export function useMutableState<T extends object>(initialState: T): ProxyState<T> {
+    const stateRef = useRef<T>(structuredClone(initialState));
+    const [tick, setTick] = useState(0);
+
+    const triggerUpdate = useCallback(() => {
+        setTick((t) => t + 1);
+    }, []);
+
+    const proxy = useMemo(() => createReactiveProxy(stateRef.current, triggerUpdate), [tick]);
+    return proxy;
+}
 
 /**
  * Creates a recursive reactive proxy for the given object.
@@ -40,24 +39,14 @@ function createReactiveProxy<T extends object>(obj: T, triggerUpdate: () => void
         deleteProperty(target, property) {
             if (property in target) {
                 delete target[property as keyof T];
-                triggerUpdate(); // Notify React to trigger a render
+                triggerUpdate(); // Trigger a re-render
             }
             return true;
         },
 
         get(target, property) {
             if (property === 'toObject') {
-                return () => {
-                    const serialized: any = Array.isArray(target) ? [] : {};
-                    for (const key in target) {
-                        const value = target[key];
-                        serialized[key] =
-                            value && typeof value === 'object' && !(value instanceof RegExp)
-                                ? ((value as any).toObject?.() ?? value)
-                                : value;
-                    }
-                    return serialized;
-                };
+                return () => structuredClone(target);
             }
 
             const value = target[property as keyof T];
@@ -80,7 +69,7 @@ function createReactiveProxy<T extends object>(obj: T, triggerUpdate: () => void
 
             if (target[property as keyof T] !== value) {
                 target[property as keyof T] = value;
-                triggerUpdate(); // Notify React to trigger a render
+                triggerUpdate(); // Trigger a re-render
             }
 
             return true;
